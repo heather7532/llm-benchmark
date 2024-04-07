@@ -7,6 +7,7 @@ from pydantic import (
     Field,
     field_validator,
 )
+import platform,socket,re,uuid,json,psutil,logging
 
 from datetime import datetime
 
@@ -119,6 +120,21 @@ def inference_stats(model_response: OllamaResponse):
         """
     )
 
+def getSystemInfo():
+    try:
+        info={}
+        info['platform']=platform.system()
+        info['platform-release']=platform.release()
+        info['platform-version']=platform.version()
+        info['architecture']=platform.machine()
+        info['hostname']=socket.gethostname()
+        # info['ip-address']=socket.gethostbyname(socket.gethostname())
+        # info['mac-address']=':'.join(re.findall('..', '%012x' % uuid.getnode()))
+        info['processor']=platform.processor()
+        info['ram']=str(round(psutil.virtual_memory().total / (1024.0 **3)))+" GB"
+        return info
+    except Exception as e:
+        logging.exception(e)
 
 def average_stats(responses: List[OllamaResponse]):
     if len(responses) == 0:
@@ -183,15 +199,30 @@ def main():
         ],
         help="List of prompts to use for benchmarking. Separate multiple prompts with spaces.",
     )
+    parser.add_argument(
+        "--no-show-platform",
+        action="store_true",
+        help="Do not print platform information in report.",
+        default=False,
+    )
 
     args = parser.parse_args()
 
     verbose = args.verbose
     skip_models = args.skip_models
     prompts = args.prompts
+    no_show_platform = args.no_show_platform
     print(
         f"\nVerbose: {verbose}\nSkip models: {skip_models}\nPrompts: {prompts}"
     )
+
+    if (not no_show_platform):
+        print(f"\nSystem Information")
+        print("="*60)
+        info = getSystemInfo()
+        for key in info:
+            print(f'{key:<17}: {info[key]}')
+        print("="*60)
 
     model_names = get_benchmark_models(skip_models)
     benchmarks = {}
